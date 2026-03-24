@@ -1,0 +1,59 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); FILE_PATH=$(echo \"$INPUT\" | python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get(\\\"file_path\\\", d.get(\\\"path\\\", \\\"\\\")))\" 2>/dev/null); GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); if [[ -z \"$GIT_ROOT\" ]]; then exit 0; fi; if [[ -n \"$FILE_PATH\" && \"$FILE_PATH\" != \"$GIT_ROOT\"* ]]; then exit 0; fi; BRANCH=$(git branch --show-current 2>/dev/null); if [[ -z \"$BRANCH\" ]]; then exit 0; fi; if [[ \"$BRANCH\" == \"main\" || \"$BRANCH\" == \"master\" || \"$BRANCH\" == dev/* ]]; then echo \"BLOCKED: On branch \\\"$BRANCH\\\" \u2014 call EnterWorktree first to create a session branch.\"; exit 2; fi'"
+          },
+          {
+            "type": "command",
+            "command": "bash $HOME/.claude/scripts/pretooluse-task-gate.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'rm -f /tmp/claude-task-active-$(date +%Y%m%d); echo \"--- Worktree Health ---\"; ~/.claude/scripts/worktree-health.sh 2>/dev/null; echo \"------------------------\"; TODAY=$(date +%Y-%m-%d); if ! ls ~/.claude/briefs/${TODAY}-*.md >/dev/null 2>&1; then echo \"--- Generating Morning Brief [$(date +%H:%M)] ---\"; BFILE=$(bash ~/.claude/scripts/session-brief.sh 2>/dev/null); echo \"Brief: ${BFILE}\"; fi; DOW=$(date +%u); if [[ \"$DOW\" == \"1\" ]] && ! ls ~/.claude/briefs/memory-health-${TODAY}.md >/dev/null 2>&1; then echo \"--- Running Memory Health Check [$(date +%H:%M)] ---\"; HFILE=$(bash ~/.claude/scripts/memory-health.sh 2>/dev/null); echo \"Health: ${HFILE}\"; fi; BRIEF=$(ls -t ~/.claude/briefs/${TODAY}-*.md 2>/dev/null | head -1); if [[ -n \"$BRIEF\" ]]; then echo \"--- Morning Brief ---\"; cat \"$BRIEF\"; echo \"---------------------\"; fi'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $HOME/.claude/scripts/stop-hook.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__.*|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $HOME/.claude/scripts/posttooluse-hook.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "TaskUpdate|TaskCreate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $HOME/.claude/scripts/posttooluse-task-reviewer.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

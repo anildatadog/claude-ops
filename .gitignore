@@ -1,0 +1,10 @@
+# Runtime state — never commit these
+briefs/
+sessions/
+tasks/
+*.log
+hook-log.txt
+/tmp/
+
+# macOS
+.DS_Store
