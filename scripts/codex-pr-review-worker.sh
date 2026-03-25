@@ -2,6 +2,11 @@
 # codex-pr-review-worker.sh — background worker
 # Fetches PR diff, calls OpenAI GPT-4o, posts review as PR comment.
 # Called by codex-pr-review.sh with PR URL as $1.
+#
+# Configuration (set in your shell profile or Claude Code env):
+#   OPENAI_API_KEY        — direct API key (takes precedence)
+#   CODEX_OPENAI_OP_REF   — 1Password reference, e.g. "op://Vault/Item/field"
+#   CODEX_OP_ACCOUNT      — 1Password account shorthand (optional, e.g. "mycompany")
 
 set -euo pipefail
 
@@ -30,15 +35,12 @@ if [[ ! -s "$DIFF_FILE" ]]; then
     exit 0
 fi
 
-# Write env file for 1Password injection (deleted after use)
-ENV_FILE=$(mktemp /tmp/codex-env-XXXXXX)
-printf 'OPENAI_API_KEY=op://Employee/z6mf2kmteqwqsvr5x6hc22m3be/API key\n' > "$ENV_FILE"
-
 REVIEW_FILE=$(mktemp /tmp/codex-review-XXXXXX)
 
-op run --account datadog \
-    --env-file="$ENV_FILE" \
-    -- python3 - "$DIFF_FILE" "$REVIEW_FILE" << 'PYEOF'
+# Write the review script to a temp file so we can run it via either
+# a plain python3 call or through 'op run' for 1Password injection.
+PY_FILE=$(mktemp /tmp/codex-py-XXXXXX.py)
+cat > "$PY_FILE" << 'PYEOF'
 import os, json, sys, urllib.request, urllib.error
 
 diff_path, out_path = sys.argv[1], sys.argv[2]
@@ -48,7 +50,7 @@ with open(diff_path) as f:
 
 api_key = os.environ.get("OPENAI_API_KEY", "")
 if not api_key:
-    print("ERROR: OPENAI_API_KEY not injected", file=sys.stderr)
+    print("ERROR: OPENAI_API_KEY not set", file=sys.stderr)
     sys.exit(1)
 
 payload = {
@@ -97,7 +99,23 @@ except Exception as e:
     sys.exit(1)
 PYEOF
 
-rm -f "$DIFF_FILE" "$ENV_FILE"
+# Run the script — direct key takes precedence over 1Password
+if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    python3 "$PY_FILE" "$DIFF_FILE" "$REVIEW_FILE"
+elif [[ -n "${CODEX_OPENAI_OP_REF:-}" ]]; then
+    ENV_FILE=$(mktemp /tmp/codex-env-XXXXXX)
+    printf 'OPENAI_API_KEY=%s\n' "$CODEX_OPENAI_OP_REF" > "$ENV_FILE"
+    OP_ACCOUNT_ARG=()
+    [[ -n "${CODEX_OP_ACCOUNT:-}" ]] && OP_ACCOUNT_ARG=(--account "$CODEX_OP_ACCOUNT")
+    op run "${OP_ACCOUNT_ARG[@]}" --env-file="$ENV_FILE" -- python3 "$PY_FILE" "$DIFF_FILE" "$REVIEW_FILE"
+    rm -f "$ENV_FILE"
+else
+    log "ERROR: Set OPENAI_API_KEY or CODEX_OPENAI_OP_REF to enable Codex review"
+    rm -f "$DIFF_FILE" "$REVIEW_FILE" "$PY_FILE"
+    exit 0
+fi
+
+rm -f "$DIFF_FILE" "$PY_FILE"
 
 if [[ ! -s "$REVIEW_FILE" ]]; then
     log "WARN: No review generated for PR #$PR_NUMBER"
