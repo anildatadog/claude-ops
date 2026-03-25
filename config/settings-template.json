@@ -53,6 +53,15 @@
             "command": "bash $HOME/.claude/scripts/posttooluse-task-reviewer.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $HOME/.claude/scripts/codex-pr-review.sh"
+          }
+        ]
       }
     ]
   }
