@@ -22,7 +22,7 @@ Each system came from a real failure. This repo is the result.
 
 ## Architecture Diagrams
 
-Visual reference: [`docs/diagrams.html`](docs/diagrams.html) — open locally in a browser, four diagrams covering git workflow, reliability stack, hook lifecycle, and data flow.
+Visual reference: **[anildatadog.github.io/claude-ops/diagrams.html](https://anildatadog.github.io/claude-ops/diagrams.html)** — four diagrams: git workflow, reliability stack, hook lifecycle, data flow.
 
 ---
 
