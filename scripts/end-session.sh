@@ -46,6 +46,14 @@ for repo in "${REPOS[@]}"; do
     continue
   fi
 
+  # Derive owner/repo from git remote (works for any GitHub account)
+  remote_url=$(git remote get-url origin 2>/dev/null || echo "")
+  gh_repo=$(echo "$remote_url" | sed -E 's|.*github\.com[:/]([^/]+/[^/.]+)(\.git)?$|\1|')
+  if [[ -z "$gh_repo" || "$gh_repo" == "$remote_url" ]]; then
+    echo "[$repo] Could not determine GitHub repo from remote — skipping"
+    continue
+  fi
+
   # Find session branches ahead of dev/today
   unmerged=()
   while IFS= read -r branch; do
@@ -68,18 +76,18 @@ for repo in "${REPOS[@]}"; do
     echo "[$repo] $branch → $DEV_BRANCH"
 
     # Check if PR already exists
-    existing_pr=$(gh pr list --repo "anildatadog/$repo" --head "$branch" --base "$DEV_BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
+    existing_pr=$(gh pr list --repo "$gh_repo" --head "$branch" --base "$DEV_BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
 
     if [[ -z "$existing_pr" ]]; then
       # Create PR
       pr_url=$(gh pr create \
-        --repo "anildatadog/$repo" \
+        --repo "$gh_repo" \
         --head "$branch" \
         --base "$DEV_BRANCH" \
         --title "$(echo "$branch" | sed 's|session/[0-9-]*-||')" \
         --body "Auto-created by end-session script." \
         2>/dev/null)
-      pr_num=$(gh pr list --repo "anildatadog/$repo" --head "$branch" --base "$DEV_BRANCH" --json number --jq '.[0].number')
+      pr_num=$(gh pr list --repo "$gh_repo" --head "$branch" --base "$DEV_BRANCH" --json number --jq '.[0].number')
       echo "  Created PR #$pr_num"
     else
       pr_num="$existing_pr"
@@ -87,7 +95,7 @@ for repo in "${REPOS[@]}"; do
     fi
 
     # Merge
-    gh pr merge "$pr_num" --repo "anildatadog/$repo" --merge --delete-branch 2>/dev/null && \
+    gh pr merge "$pr_num" --repo "$gh_repo" --merge --delete-branch 2>/dev/null && \
       echo "  Merged PR #$pr_num" || \
       echo "  Merge failed for PR #$pr_num — check GitHub"
   done
