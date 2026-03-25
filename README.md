@@ -1,17 +1,28 @@
 # claude-ops
 
-Battle-tested Claude Code configuration for teams doing serious work with AI. Four systems built to address four real failure modes.
+Claude Code reliability infrastructure — four systems built in response to four real failure modes.
 
-## The Problem
+## The Story
 
-After months of daily Claude Code use, four failure modes kept showing up:
+I use Claude Code as my daily driver for customer engineering work — multiple live engagements running in parallel. The setup is deliberate: every session gets its own git worktree so branches never bleed into each other. Day branches (`dev/YYYY-MM-DD`) group the work. Session branches feed into them. Claude Code sessions map 1:1 to worktrees — no context switching, no accidental cross-session edits.
 
-1. **Confident wrong claims** — "tests pass" before they've been run
-2. **Context contamination** — facts from one project bleeding into another
-3. **No activity between sessions** — stale state, missed blockers
-4. **Session drift** — sprawling edits with no clear scope
+That structure gave me confidence in the *isolation*. What it didn't give me was confidence in the *AI*.
 
-This repo is the engineering response to each one.
+**First: Claude would claim work was done before it was.** Tests "passing", changes verified — then I'd check and nothing had actually run. So I built a Stop hook that hashes `git status --porcelain` at verification time and blocks session end if the tree changes afterward. No sentinel = no close. Wrong hash = re-verify.
+
+**That worked. Then I noticed context contamination.** Facts from one customer engagement bleeding into reasoning about another. Wrong org IDs, wrong environments. So I built a shared Python library with `@require_verified_context` — a decorator that blocks any MCP tool from running against an unregistered customer, with every fact stamped with a trust tag at the response boundary.
+
+**With contamination solved, the next gap was between sessions.** Wake up, start a session, no idea what was blocked yesterday. So I added a SessionStart hook: daily morning brief auto-generated at session start — open tasks, RAG status, worktree health, last session's hook warnings.
+
+**The last one took longest to see: scope drift.** Long sessions would sprawl across files with no clear ownership. So I added a PreToolUse hook that blocks Edit/Write if 3+ files are modified without an active task, and a PostToolUse hook that injects a git diff review prompt the moment a task completes.
+
+Each system came from a real failure. This repo is the result.
+
+---
+
+## Architecture Diagrams
+
+Visual reference: [`docs/diagrams.html`](docs/diagrams.html) — open locally in a browser, four diagrams covering git workflow, reliability stack, hook lifecycle, and data flow.
 
 ---
 
