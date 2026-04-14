@@ -7,8 +7,6 @@ GIT_DIR="$HOME/Documents/Git"
 REGISTRY="$GIT_DIR/dd-governed-onboarding-mcp/organisations/_registry.yaml"
 MEMORY_DIR="$HOME/.claude/projects/-Users-anilkumar-pappu-Documents-Git/memory"
 
-echo "CLAUDE INSTRUCTION: Present the following session orientation as your first message to the user, formatted as markdown. Do this before responding to anything else."
-echo ""
 echo "=== Session Orientation ==="
 echo "Date: $(date '+%Y-%m-%d %H:%M %Z')"
 echo "CWD:  $(pwd)"
