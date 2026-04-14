@@ -87,3 +87,5 @@ echo "_Populated by Claude agent if Jira/Linear MCP is configured_" >> "$BRIEF_F
 echo "" >> "$BRIEF_FILE"
 
 echo "$BRIEF_FILE"
+
+cat "$BRIEF_FILE"
