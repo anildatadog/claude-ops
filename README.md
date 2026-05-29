@@ -6,6 +6,8 @@ Claude Code reliability infrastructure — four systems built in response to fou
 
 I use Claude Code as my daily driver for customer engineering work — multiple live engagements running in parallel. The setup is deliberate: every session gets its own git worktree so branches never bleed into each other. Day branches (`dev/YYYY-MM-DD`) group the work. Session branches feed into them. Claude Code sessions map 1:1 to worktrees — no context switching, no accidental cross-session edits.
 
+For coding tasks in managed repos, I use [Bits Dev](https://app.datadoghq.com/code) — Datadog's internal coding agent. It builds, lints, tests, and opens PRs autonomously. From Claude Code, `/bits-dev:launch-remote <task>` kicks off a remote session against any managed repo; `/bits-dev:teleport-local` pulls the result back locally when ready.
+
 That structure gave me confidence in the *isolation*. What it didn't give me was confidence in the *AI*.
 
 **First: Claude would claim work was done before it was.** Tests "passing", changes verified — then I'd check and nothing had actually run. So I built a Stop hook that hashes `git status --porcelain` at verification time and blocks session end if the tree changes afterward. No sentinel = no close. Wrong hash = re-verify.
